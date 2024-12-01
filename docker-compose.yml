@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   pfdb:
     image: bianjp/mariadb-alpine:latest
@@ -9,9 +7,13 @@ services:
       pf:
         aliases:
           - "mariadb"
+
+    # configs: TODO: Fix so it adds appropriately
+    #   - source: pathfinder_universe.1
+    #     target: /eve_universe.sql.zip
+    #     mode: 0444
     volumes:
       - db_data:/var/lib/mysql
-      - ./pathfinder/export/sql/eve_universe.sql.zip:/eve_universe.sql.zip
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
   pf-redis:
@@ -25,8 +27,6 @@ services:
       pf:
         aliases:
           - "redis"
-    logging:
-      driver: none
   pf-socket:
     image: ghcr.io/goryn-clade/pf-websocket:latest
     command: ["--tcpHost", "0.0.0.0"]
@@ -35,7 +35,7 @@ services:
          aliases:
            - "pathfinder-socket"
     volumes:
-      - ./logs:/var/www/html/pathfinder/history/map
+      - pf_logs:/var/www/html/pathfinder/history/map
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
 
@@ -61,23 +61,43 @@ services:
       - pf
       - incursions
     healthcheck:
-      disable: true
+      disable: true # FIXME
     volumes:
-      - ./config/pathfinder/config.ini:/var/www/html/pathfinder/app/templateConfig.ini
-      - ./config/pathfinder/pathfinder.ini:/var/www/html/pathfinder/app/pathfinder.ini
-      - ./config/pathfinder/plugin.ini:/var/www/html/pathfinder/app/plugin.ini
-      - ./logs:/var/www/html/pathfinder/history/map
+      - pf_logs:/var/www/html/pathfinder/history/map
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: pathfinder_main_config.1
+        target: /var/www/html/pathfinder/app/templateConfig.ini
+        mode: 0444
+      - source: pathfinder_ini.1
+        target: /var/www/html/pathfinder/app/pathfinder.ini
+        mode: 0444
+      - source: pathfinder_plugin_config.1
+        target: /var/www/html/pathfinder/app/plugin.ini
+        mode: 0444
     depends_on:
       - pfdb
       - pf-redis
       - pf-socket
     restart: always
 
+configs:
+  pathfinder_main_config.1:
+    file: ./config/pathfinder/config.ini
+  pathfinder_ini.1:
+    file: ./config/pathfinder/pathfinder.ini
+  pathfinder_plugin_config.1:
+    file: ./config/pathfinder/plugin.ini
+
+
+
 volumes:
+     pf_logs:
      db_data:
      redis_data:
+
+
 networks:
     pf:
     incursions:
